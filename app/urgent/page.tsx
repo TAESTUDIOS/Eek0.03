@@ -18,7 +18,7 @@ export default function UrgentPage() {
   return (
     <div className="flex-1 min-h-0">
       <h1 className="text-2xl font-semibold">Urgent</h1>
-      <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Fast inbox for critical tasks. Stored locally on this device.</p>
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Fast inbox for critical tasks. Persists to Neon when configured (fallback to local storage).</p>
       <UrgentTodoForm onAdd={addUrgentTodo} />
       <UrgentTodoList />
     </div>

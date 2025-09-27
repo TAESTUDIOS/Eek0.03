@@ -375,35 +375,72 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Urgent todos CRUD (client-only persistence)
-  loadUrgentTodos: () => {
-    const items = readUrgentTodos();
-    set({ urgentTodos: items });
+  // Urgent todos CRUD (Neon-backed via API with localStorage fallback)
+  loadUrgentTodos: async () => {
+    try {
+      const res = await fetch("/api/urgent", { cache: "no-store" });
+      const data = await res.json().catch(() => ({} as any));
+      if (data?.ok && Array.isArray(data.items)) {
+        set({ urgentTodos: data.items });
+        writeUrgentTodos(data.items);
+        return;
+      }
+      // fallback
+      const items = readUrgentTodos();
+      set({ urgentTodos: items });
+    } catch {
+      const items = readUrgentTodos();
+      set({ urgentTodos: items });
+    }
   },
-  addUrgentTodo: (t) => {
-    const next = [t, ...get().urgentTodos];
+  addUrgentTodo: async (t) => {
+    const optimistic = [t, ...get().urgentTodos];
+    set({ urgentTodos: optimistic });
+    writeUrgentTodos(optimistic);
+    try {
+      await fetch("/api/urgent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
+      // reload from server to ensure consistency/order
+      await get().loadUrgentTodos();
+    } catch {}
+  },
+  updateUrgentTodo: async (id, patch) => {
+    const cur = get().urgentTodos.find((x) => x.id === id);
+    if (!cur) return;
+    const updated = { ...cur, ...patch, updatedAt: Date.now() };
+    const next = get().urgentTodos.map((x) => (x.id === id ? updated : x));
     set({ urgentTodos: next });
     writeUrgentTodos(next);
+    try {
+      await fetch("/api/urgent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) });
+    } catch {}
   },
-  updateUrgentTodo: (id, patch) => {
-    const next = get().urgentTodos.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x));
+  toggleUrgentDone: async (id) => {
+    const cur = get().urgentTodos.find((x) => x.id === id);
+    if (!cur) return;
+    const updated = { ...cur, done: !cur.done, updatedAt: Date.now() } as any;
+    const next = get().urgentTodos.map((x) => (x.id === id ? updated : x));
     set({ urgentTodos: next });
     writeUrgentTodos(next);
+    try {
+      await fetch("/api/urgent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated) });
+    } catch {}
   },
-  toggleUrgentDone: (id) => {
-    const next = get().urgentTodos.map((x) => (x.id === id ? { ...x, done: !x.done, updatedAt: Date.now() } : x));
-    set({ urgentTodos: next });
-    writeUrgentTodos(next);
-  },
-  deleteUrgentTodo: (id) => {
+  deleteUrgentTodo: async (id) => {
     const next = get().urgentTodos.filter((x) => x.id !== id);
     set({ urgentTodos: next });
     writeUrgentTodos(next);
+    try {
+      await fetch(`/api/urgent?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch {}
   },
-  clearCompletedUrgent: () => {
+  clearCompletedUrgent: async () => {
+    const toDelete = get().urgentTodos.filter((x) => x.done).map((x) => x.id);
     const next = get().urgentTodos.filter((x) => !x.done);
     set({ urgentTodos: next });
     writeUrgentTodos(next);
+    try {
+      await Promise.all(toDelete.map((id) => fetch(`/api/urgent?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})));
+    } catch {}
   },
 
   // Today's tasks CRUD (client-only persistence)
