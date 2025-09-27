@@ -3,13 +3,33 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { uid } from "@/lib/id";
 
 export default function ChatInput() {
   const [text, setText] = useState("");
   const { addMessage, messages, tone, rituals, fallbackWebhook } = useAppStore();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const broadcastTyping = (typing: boolean) => {
+    try {
+      window.dispatchEvent(new CustomEvent("chat-typing", { detail: { typing } }));
+    } catch {}
+  };
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const onFocus = () => broadcastTyping(true);
+    const onBlur = () => broadcastTyping(false);
+    el.addEventListener("focus", onFocus);
+    el.addEventListener("blur", onBlur);
+    return () => {
+      el.removeEventListener("focus", onFocus);
+      el.removeEventListener("blur", onBlur);
+    };
+  }, []);
 
   async function send() {
     const content = text.trim();
@@ -17,6 +37,7 @@ export default function ChatInput() {
     const userMsg = { id: uid("m"), role: "user" as const, text: content, timestamp: Date.now() };
     addMessage(userMsg);
     setText("");
+    broadcastTyping(false);
 
     // Persist user message (no echo yet; flow decides next steps)
     try {
@@ -114,8 +135,13 @@ export default function ChatInput() {
   return (
     <div className="flex gap-2 items-center">
       <input
+        ref={inputRef}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          setText(v);
+          broadcastTyping(v.trim().length > 0);
+        }}
         onKeyDown={(e) => e.key === "Enter" && send()}
         className="flex-1 border border-[var(--border)] rounded-lg px-4 py-2 text-sm bg-[var(--surface-1)] text-[var(--fg)] placeholder-[var(--fg)]/40 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] shadow-subtle"
         aria-label="Chat input"

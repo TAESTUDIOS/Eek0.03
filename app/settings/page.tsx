@@ -8,7 +8,7 @@ import { useAppStore } from "@/lib/store";
 import type { Tone, Density } from "@/lib/types";
 
 export default function SettingsPage() {
-  const { tone, setTone, clearMessages, fallbackWebhook, setFallbackWebhook, notificationsWebhook, setNotificationsWebhook, theme, setTheme, loadSettings, saveSettings, hideSleepingHours, sleepStartHour, sleepEndHour, setHideSleepingHours, setSleepStartHour, setSleepEndHour, density, setDensity } = useAppStore();
+  const { tone, setTone, clearMessages, fallbackWebhook, setFallbackWebhook, notificationsWebhook, setNotificationsWebhook, theme, setTheme, loadSettings, saveSettings, hideSleepingHours, sleepStartHour, sleepEndHour, setHideSleepingHours, setSleepStartHour, setSleepEndHour, density, setDensity, autoRefreshEnabled, autoRefreshIntervalSec, setAutoRefreshEnabled, setAutoRefreshIntervalSec } = useAppStore();
   const [testWebhook, setTestWebhook] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<null | "ok" | "err">(null);
@@ -77,6 +77,32 @@ export default function SettingsPage() {
             </select>
           </label>
           <span className="text-xs text-gray-500">Choose how dense the UI appears across all pages.</span>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-medium">Auto Refresh (Chat)</h2>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={autoRefreshEnabled}
+              onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
+            />
+            <span>Enable auto refresh</span>
+          </label>
+          <label className="text-sm flex items-center gap-2">
+            <span>Interval (sec)</span>
+            <input
+              type="number"
+              min={2}
+              max={60}
+              value={autoRefreshIntervalSec}
+              onChange={(e) => setAutoRefreshIntervalSec(Number(e.target.value))}
+              className="w-24 border rounded px-2 py-1 bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700"
+            />
+          </label>
+          <span className="text-xs text-gray-500">Default is 7 seconds. Auto-pauses while typing.</span>
         </div>
       </section>
 

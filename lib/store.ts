@@ -83,6 +83,9 @@ export type AppState = {
   // ui density
   compactMode: boolean; // back-compat
   density: Density;     // preferred
+  // auto refresh settings
+  autoRefreshEnabled: boolean;
+  autoRefreshIntervalSec: number;
   emotionLogs: EmotionLog[];
   // urgent todos (client-managed)
   urgentTodos: UrgentTodo[];
@@ -109,6 +112,8 @@ export type AppState = {
   setHideSleepingHours: (v: boolean) => void;
   setSleepStartHour: (h: number) => void;
   setSleepEndHour: (h: number) => void;
+  setAutoRefreshEnabled: (v: boolean) => void;
+  setAutoRefreshIntervalSec: (s: number) => void;
   setEmotionLogs: (items: EmotionLog[]) => void;
   loadEmotionLogs: () => Promise<boolean>;
   recordEmotion: (emotionId: EmotionId) => Promise<boolean>;
@@ -182,6 +187,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   sleepEndHour: 8,
   compactMode: false,
   density: "comfortable",
+  // auto refresh defaults
+  autoRefreshEnabled: true,
+  autoRefreshIntervalSec: 7,
   emotionLogs: [],
   urgentTodos: [],
   todayTasks: [],
@@ -203,6 +211,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           sleepEndHour: Math.max(0, Math.min(23, Number(s.sleepEndHour ?? 8))),
           compactMode: !!s.compactMode,
           density: (s.density as Density) || (s.compactMode ? "compact" : "comfortable"),
+          autoRefreshEnabled: s.autoRefreshEnabled ?? true,
+          autoRefreshIntervalSec: Math.max(2, Math.min(60, Number(s.autoRefreshIntervalSec ?? 7))),
         });
       }
     } catch {
@@ -213,11 +223,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Save current settings to server explicitly
   saveSettings: async () => {
     try {
-      const { tone, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density } = get();
+      const { tone, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density, autoRefreshEnabled, autoRefreshIntervalSec } = get();
       const res = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tone, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density }),
+        body: JSON.stringify({ tone, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density, autoRefreshEnabled, autoRefreshIntervalSec }),
       });
       const data = await res.json().catch(() => ({} as any));
       return !!data?.ok;
@@ -300,6 +310,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setHideSleepingHours: (v: boolean) => set({ hideSleepingHours: !!v }),
   setSleepStartHour: (h: number) => set({ sleepStartHour: Math.max(0, Math.min(23, Math.floor(h || 0))) }),
   setSleepEndHour: (h: number) => set({ sleepEndHour: Math.max(0, Math.min(23, Math.floor(h || 0))) }),
+  setAutoRefreshEnabled: (v: boolean) => set({ autoRefreshEnabled: !!v }),
+  setAutoRefreshIntervalSec: (s: number) => set({ autoRefreshIntervalSec: Math.max(2, Math.min(60, Math.floor(s || 7))) }),
 
   setEmotionLogs: (items) => set({ emotionLogs: items }),
   loadEmotionLogs: async () => {

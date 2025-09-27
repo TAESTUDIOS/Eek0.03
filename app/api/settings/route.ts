@@ -16,6 +16,8 @@ async function ensureTable() {
     hide_sleeping_hours BOOLEAN NOT NULL DEFAULT false,
     sleep_start_hour INTEGER NOT NULL DEFAULT 22,
     sleep_end_hour INTEGER NOT NULL DEFAULT 8,
+    auto_refresh_enabled BOOLEAN NOT NULL DEFAULT true,
+    auto_refresh_interval_sec INTEGER NOT NULL DEFAULT 7,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     compact_mode BOOLEAN NOT NULL DEFAULT false,
     density TEXT NOT NULL DEFAULT 'comfortable'
@@ -27,6 +29,8 @@ async function ensureTable() {
   await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS sleep_end_hour INTEGER NOT NULL DEFAULT 8`;
   await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS compact_mode BOOLEAN NOT NULL DEFAULT false`;
   await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS density TEXT NOT NULL DEFAULT 'comfortable'`;
+  await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN NOT NULL DEFAULT true`;
+  await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS auto_refresh_interval_sec INTEGER NOT NULL DEFAULT 7`;
   // Ensure singleton row exists
   await sql`INSERT INTO settings (id) VALUES ('singleton')
            ON CONFLICT (id) DO NOTHING`;
@@ -36,9 +40,9 @@ export async function GET() {
   try {
     await ensureTable();
     const sql = getDb();
-    const rows = await sql`SELECT tone, fallback_webhook, notifications_webhook, theme, hide_sleeping_hours, sleep_start_hour, sleep_end_hour, compact_mode, density FROM settings WHERE id = 'singleton'`;
-    const row = rows[0] || { tone: 'Gentle', fallback_webhook: '', notifications_webhook: '', theme: 'dark', hide_sleeping_hours: false, sleep_start_hour: 22, sleep_end_hour: 8, compact_mode: false, density: 'comfortable' } as any;
-    return NextResponse.json({ ok: true, settings: { tone: row.tone, fallbackWebhook: row.fallback_webhook, notificationsWebhook: row.notifications_webhook, theme: row.theme, hideSleepingHours: !!row.hide_sleeping_hours, sleepStartHour: Number(row.sleep_start_hour ?? 22), sleepEndHour: Number(row.sleep_end_hour ?? 8), compactMode: !!row.compact_mode, density: String(row.density || 'comfortable') } });
+    const rows = await sql`SELECT tone, fallback_webhook, notifications_webhook, theme, hide_sleeping_hours, sleep_start_hour, sleep_end_hour, compact_mode, density, auto_refresh_enabled, auto_refresh_interval_sec FROM settings WHERE id = 'singleton'`;
+    const row = rows[0] || { tone: 'Gentle', fallback_webhook: '', notifications_webhook: '', theme: 'dark', hide_sleeping_hours: false, sleep_start_hour: 22, sleep_end_hour: 8, compact_mode: false, density: 'comfortable', auto_refresh_enabled: true, auto_refresh_interval_sec: 7 } as any;
+    return NextResponse.json({ ok: true, settings: { tone: row.tone, fallbackWebhook: row.fallback_webhook, notificationsWebhook: row.notifications_webhook, theme: row.theme, hideSleepingHours: !!row.hide_sleeping_hours, sleepStartHour: Number(row.sleep_start_hour ?? 22), sleepEndHour: Number(row.sleep_end_hour ?? 8), compactMode: !!row.compact_mode, density: String(row.density || 'comfortable'), autoRefreshEnabled: !!row.auto_refresh_enabled, autoRefreshIntervalSec: Number(row.auto_refresh_interval_sec ?? 7) } });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "db error" }, { status: 500 });
   }
@@ -56,12 +60,14 @@ export async function POST(req: Request) {
     const sleepEndHour = Number.isFinite(body?.sleepEndHour) ? Number(body.sleepEndHour) : undefined;
     const compactMode = typeof body?.compactMode === 'boolean' ? body.compactMode : undefined;
     const density = typeof body?.density === 'string' ? body.density : undefined;
+    const autoRefreshEnabled = typeof body?.autoRefreshEnabled === 'boolean' ? body.autoRefreshEnabled : undefined;
+    const autoRefreshIntervalSec = Number.isFinite(body?.autoRefreshIntervalSec) ? Number(body.autoRefreshIntervalSec) : undefined;
 
     await ensureTable();
     const sql = getDb();
     // Upsert fields provided in body
-    await sql`INSERT INTO settings (id, tone, fallback_webhook, notifications_webhook, theme, hide_sleeping_hours, sleep_start_hour, sleep_end_hour, compact_mode, density)
-              VALUES ('singleton', ${tone ?? 'Gentle'}, ${fallbackWebhook ?? ''}, ${notificationsWebhook ?? ''}, ${theme ?? 'dark'}, ${hideSleepingHours ?? false}, ${sleepStartHour ?? 22}, ${sleepEndHour ?? 8}, ${compactMode ?? false}, ${density ?? 'comfortable'})
+    await sql`INSERT INTO settings (id, tone, fallback_webhook, notifications_webhook, theme, hide_sleeping_hours, sleep_start_hour, sleep_end_hour, compact_mode, density, auto_refresh_enabled, auto_refresh_interval_sec)
+              VALUES ('singleton', ${tone ?? 'Gentle'}, ${fallbackWebhook ?? ''}, ${notificationsWebhook ?? ''}, ${theme ?? 'dark'}, ${hideSleepingHours ?? false}, ${sleepStartHour ?? 22}, ${sleepEndHour ?? 8}, ${compactMode ?? false}, ${density ?? 'comfortable'}, ${autoRefreshEnabled ?? true}, ${autoRefreshIntervalSec ?? 7})
               ON CONFLICT (id) DO UPDATE SET
                 tone = COALESCE(${tone}, settings.tone),
                 fallback_webhook = COALESCE(${fallbackWebhook}, settings.fallback_webhook),
@@ -72,6 +78,8 @@ export async function POST(req: Request) {
                 sleep_end_hour = COALESCE(${sleepEndHour}, settings.sleep_end_hour),
                 compact_mode = COALESCE(${compactMode}, settings.compact_mode),
                 density = COALESCE(${density}, settings.density),
+                auto_refresh_enabled = COALESCE(${autoRefreshEnabled}, settings.auto_refresh_enabled),
+                auto_refresh_interval_sec = COALESCE(${autoRefreshIntervalSec}, settings.auto_refresh_interval_sec),
                 updated_at = NOW()`;
     return NextResponse.json({ ok: true });
   } catch (e: any) {

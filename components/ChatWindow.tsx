@@ -75,17 +75,17 @@ export default function ChatWindow() {
     };
   }, [goodnightShown, messages, addMessage]);
 
-  // Auto-scroll to bottom whenever messages change
+  // Auto-scroll to bottom whenever messages change (always)
   useEffect(() => {
-    // Prefer smooth scroll if user is near bottom; otherwise jump
     const el = containerRef.current;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160; // px threshold
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: nearBottom ? "smooth" : "auto" });
-    } else {
-      el.scrollTop = el.scrollHeight;
-    }
+    try {
+      if (bottomRef.current) {
+        bottomRef.current.scrollIntoView({ behavior: "smooth" });
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
+    } catch {}
   }, [messages]);
 
   // Ensure urgent todos are available when demo grid is shown in chat

@@ -9,25 +9,41 @@
   import TodayTaskList from "@/components/TodayTaskList";
   import Sidebar from "@/components/Sidebar";
   import Image from "next/image";
-  import { useEffect, useState, useMemo } from "react";
+  import { useEffect, useState, useMemo, useRef } from "react";
   import { useAppStore } from "@/lib/store";
   import Logo from "@/images/logo/logo.png";
 
   export default function ChatPage() {
-  const { setMessages, clearMessages, addUrgentTodo, loadUrgentTodos, loadTodayTasks, urgentTodos } = useAppStore();
+  const { setMessages, clearMessages, addUrgentTodo, loadUrgentTodos, loadTodayTasks, urgentTodos, autoRefreshEnabled, autoRefreshIntervalSec } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editingUrgents, setEditingUrgents] = useState(false);
   const [showAddUrgent, setShowAddUrgent] = useState(false);
   const [todayCount, setTodayCount] = useState<number>(0);
+  const isFetchingMessages = useRef(false);
+  const isTypingRef = useRef(false);
+  // Load messages from server with in-flight guard
+  const loadMessages = async () => {
+    if (isFetchingMessages.current) return;
+    isFetchingMessages.current = true;
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/messages", { cache: "no-store" });
+      const data = await res.json().catch(() => ({} as any));
+      if (Array.isArray(data?.messages)) setMessages(data.messages);
+    } catch {
+    } finally {
+      isFetchingMessages.current = false;
+      setRefreshing(false);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch("/api/messages")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data?.messages)) setMessages(data.messages);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    // initial load
+    loadMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setMessages]);
   useEffect(() => {
     loadUrgentTodos();
@@ -54,15 +70,54 @@
 
   useEffect(() => {
     loadTodayCount();
-    const onFocus = () => loadTodayCount();
-    const onVis = () => { if (document.visibilityState === "visible") loadTodayCount(); };
+    const onFocus = () => { loadTodayCount(); if (!isTypingRef.current) loadMessages(); };
+    const onVis = () => { if (document.visibilityState === "visible") { loadTodayCount(); if (!isTypingRef.current) loadMessages(); } };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVis);
+    const onTyping = (e: any) => { isTypingRef.current = !!(e?.detail?.typing); };
+    window.addEventListener("chat-typing", onTyping as any);
     return () => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("chat-typing", onTyping as any);
     };
   }, []);
+
+  // SSE-based auto refresh with polling fallback
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let pollId: any = null;
+    const startPoll = () => {
+      const ms = Math.max(2000, Math.min(60000, (autoRefreshIntervalSec || 7) * 1000));
+      pollId = setInterval(() => {
+        if (autoRefreshEnabled && !isTypingRef.current && document.visibilityState === "visible") {
+          loadMessages();
+        }
+      }, ms);
+    };
+    if (autoRefreshEnabled) {
+      try {
+        es = new EventSource("/api/messages/stream");
+        es.onmessage = () => {
+          if (!isTypingRef.current && document.visibilityState === "visible") {
+            loadMessages();
+          }
+        };
+        es.onerror = () => {
+          try { es?.close(); } catch {}
+          es = null;
+          if (!pollId) startPoll();
+        };
+      } catch {
+        startPoll();
+      }
+    }
+    if (!pollId && autoRefreshEnabled) startPoll();
+    return () => {
+      if (es) { try { es.close(); } catch {} }
+      if (pollId) clearInterval(pollId);
+    };
+  }, [autoRefreshEnabled, autoRefreshIntervalSec]);
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
       <div className="flex-1 min-h-0">
@@ -82,6 +137,23 @@
               <span className="text-[10px] font-normal text-[var(--fg)]/35">v.03</span>
             </div>
             <div className="flex items-center gap-2">
+              {/* Refresh chat button */}
+              <button
+                type="button"
+                aria-label="Refresh chat"
+                title="Refresh chat"
+                disabled={refreshing}
+                onClick={loadMessages}
+                className="inline-flex items-center justify-center h-9 px-2 py-0 rounded-md border border-[var(--border)] bg-[var(--surface-1)] text-[var(--fg)]/90 hover:bg-[var(--surface-2)] disabled:opacity-60 shadow-subtle"
+              >
+                {refreshing ? (
+                  <span className="h-4 w-4 rounded-full border-2 border-[var(--border)] border-t-[var(--fg)]/70 animate-spin align-middle" aria-hidden="true" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 shrink-0 align-middle">
+                    <path d="M3.75 12a8.25 8.25 0 0 1 14.06-5.836l1.04-1.04a.75.75 0 1 1 1.06 1.06l-2.5 2.5a.75.75 0 0 1-1.28-.53V5.5a.75.75 0 0 1 1.5 0v1.222A9.75 9.75 0 1 0 12 21.75a.75.75 0 0 1 0-1.5A8.25 8.25 0 0 1 3.75 12Z" />
+                  </svg>
+                )}
+              </button>
               {/* Clear chat button */}
               <button
                 type="button"

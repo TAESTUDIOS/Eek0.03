@@ -82,6 +82,9 @@ export interface Settings {
   density?: Density;
   // Back-compat: previous boolean compact flag (may be present from older schema)
   compactMode?: boolean;
+  // Auto refresh settings
+  autoRefreshEnabled?: boolean;
+  autoRefreshIntervalSec?: number;
 }
 
 // Appointment items for day scheduling
