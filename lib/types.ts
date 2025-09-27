@@ -85,6 +85,10 @@ export interface Settings {
   // Auto refresh settings
   autoRefreshEnabled?: boolean;
   autoRefreshIntervalSec?: number;
+  // Preferred display name for the single user
+  name?: string;
+  // Freeform user context for personalization
+  profileNotes?: string;
 }
 
 // Appointment items for day scheduling

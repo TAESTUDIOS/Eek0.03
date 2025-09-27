@@ -8,7 +8,7 @@ import { useAppStore } from "@/lib/store";
 import type { Tone, Density } from "@/lib/types";
 
 export default function SettingsPage() {
-  const { tone, setTone, clearMessages, fallbackWebhook, setFallbackWebhook, notificationsWebhook, setNotificationsWebhook, theme, setTheme, loadSettings, saveSettings, hideSleepingHours, sleepStartHour, sleepEndHour, setHideSleepingHours, setSleepStartHour, setSleepEndHour, density, setDensity, autoRefreshEnabled, autoRefreshIntervalSec, setAutoRefreshEnabled, setAutoRefreshIntervalSec } = useAppStore();
+  const { tone, setTone, name, setName, profileNotes, setProfileNotes, clearMessages, fallbackWebhook, setFallbackWebhook, notificationsWebhook, setNotificationsWebhook, theme, setTheme, loadSettings, saveSettings, hideSleepingHours, sleepStartHour, sleepEndHour, setHideSleepingHours, setSleepStartHour, setSleepEndHour, density, setDensity, autoRefreshEnabled, autoRefreshIntervalSec, setAutoRefreshEnabled, setAutoRefreshIntervalSec } = useAppStore();
   const [testWebhook, setTestWebhook] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<null | "ok" | "err">(null);
@@ -52,6 +52,31 @@ export default function SettingsPage() {
         {saveResult === "ok" && <span className="text-xs text-green-600">Saved</span>}
         {saveResult === "err" && <span className="text-xs text-red-600">Failed to save</span>}
       </div>
+
+      <section className="space-y-2">
+        <h2 className="font-medium">Profile</h2>
+        <label className="text-sm flex items-center gap-2">
+          <span>Preferred Name</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Alex"
+            className="border rounded px-2 py-1 bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700"
+          />
+        </label>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium">What does Eeko need to know about you?</label>
+          <textarea
+            value={profileNotes}
+            onChange={(e) => setProfileNotes(e.target.value)}
+            placeholder="Freeform notes for personalization (e.g., goals, constraints, routines, sensitivities)."
+            rows={4}
+            className="w-full max-w-xl border rounded px-2 py-2 bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400">Saved locally via your settings backend. Avoid adding secrets.</p>
+        </div>
+      </section>
 
       <section className="space-y-2">
         <h2 className="font-medium">Appearance</h2>

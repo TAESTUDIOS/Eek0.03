@@ -9,7 +9,7 @@ import { uid } from "@/lib/id";
 
 export default function ChatInput() {
   const [text, setText] = useState("");
-  const { addMessage, messages, tone, rituals, fallbackWebhook } = useAppStore();
+  const { addMessage, messages, tone, name, profileNotes, rituals, fallbackWebhook } = useAppStore();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const broadcastTyping = (typing: boolean) => {
@@ -100,7 +100,7 @@ export default function ChatInput() {
       const res = await fetch("/api/fallback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: content, lastMessages: messages.slice(-10), tone, url: fallbackWebhook || undefined }),
+        body: JSON.stringify({ text: content, lastMessages: messages.slice(-10), tone, name, profileNotes, url: fallbackWebhook || undefined }),
       });
       const data = await res.json().catch(() => ({} as any));
       if (!res.ok || data?.ok === false) {

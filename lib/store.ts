@@ -73,6 +73,8 @@ export type AppState = {
   rituals: RitualConfig[];
   saved: SavedMessage[];
   tone: Tone;
+  name: string;
+  profileNotes: string;
   fallbackWebhook: string; // optional fallback n8n webhook URL
   theme: Theme;
   notificationsWebhook?: string; // optional notifications webhook URL
@@ -104,6 +106,8 @@ export type AppState = {
   deleteRitual: (id: string) => void;
   clearMessages: () => Promise<void>;
   setTone: (t: Tone) => void;
+  setName: (v: string) => void;
+  setProfileNotes: (v: string) => void;
   setFallbackWebhook: (url: string) => void;
   setTheme: (t: Theme) => void;
   setNotificationsWebhook: (url: string) => void;
@@ -179,6 +183,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   rituals: devRituals,
   saved: devSaved,
   tone: "Gentle",
+  name: "",
+  profileNotes: "",
   fallbackWebhook: "",
   theme: "dark",
   notificationsWebhook: "",
@@ -203,6 +209,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         const s: Settings = data.settings;
         set({
           tone: s.tone,
+          name: s.name || "",
+          profileNotes: s.profileNotes || "",
           fallbackWebhook: s.fallbackWebhook,
           notificationsWebhook: s.notificationsWebhook,
           theme: s.theme,
@@ -223,11 +231,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Save current settings to server explicitly
   saveSettings: async () => {
     try {
-      const { tone, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density, autoRefreshEnabled, autoRefreshIntervalSec } = get();
+      const { tone, name, profileNotes, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density, autoRefreshEnabled, autoRefreshIntervalSec } = get();
       const res = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tone, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density, autoRefreshEnabled, autoRefreshIntervalSec }),
+        body: JSON.stringify({ tone, name, profileNotes, fallbackWebhook, notificationsWebhook, theme, hideSleepingHours, sleepStartHour, sleepEndHour, compactMode, density, autoRefreshEnabled, autoRefreshIntervalSec }),
       });
       const data = await res.json().catch(() => ({} as any));
       return !!data?.ok;
@@ -302,6 +310,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setTone: (t) => set({ tone: t }),
+  setName: (v: string) => set({ name: v }),
+  setProfileNotes: (v: string) => set({ profileNotes: v }),
   setFallbackWebhook: (url: string) => set({ fallbackWebhook: url }),
   setTheme: (t) => set({ theme: t }),
   setNotificationsWebhook: (url: string) => set({ notificationsWebhook: url }),

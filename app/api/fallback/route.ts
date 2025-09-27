@@ -15,6 +15,8 @@ export async function POST(req: Request) {
     const text: string = body?.text ?? "";
     const lastMessages = Array.isArray(body?.lastMessages) ? body.lastMessages : [];
     const tone: string | undefined = body?.tone;
+    const name: string | undefined = body?.name;
+    const profileNotes: string | undefined = body?.profileNotes;
     const url: string | undefined = body?.url || process.env.NEXT_PUBLIC_FALLBACK_WEBHOOK;
 
     if (!url) {
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, lastMessages, tone }),
+      body: JSON.stringify({ text, lastMessages, tone, name, profileNotes }),
       cache: "no-store",
     });
 
