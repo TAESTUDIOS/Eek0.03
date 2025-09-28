@@ -12,6 +12,7 @@ export default function ChatInput() {
   const { addMessage, messages, tone, name, profileNotes, rituals, fallbackWebhook } = useAppStore();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Helper to broadcast typing state to the page
   const broadcastTyping = (typing: boolean) => {
     try {
       window.dispatchEvent(new CustomEvent("chat-typing", { detail: { typing } }));
@@ -140,6 +141,7 @@ export default function ChatInput() {
         onChange={(e) => {
           const v = e.target.value;
           setText(v);
+          // Consider typing if there's content or field focused
           broadcastTyping(v.trim().length > 0);
         }}
         onKeyDown={(e) => e.key === "Enter" && send()}

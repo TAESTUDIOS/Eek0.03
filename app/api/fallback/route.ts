@@ -26,18 +26,58 @@ export async function POST(req: Request) {
       );
     }
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, lastMessages, tone, name, profileNotes }),
-      cache: "no-store",
-    });
+    // Basic validation: require HTTPS for serverless environments
+    if (!/^https:\/\//i.test(url)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid webhook URL. Must start with https://", target: url },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
-    let data: any = null;
+    let res: Response;
     try {
-      data = await res.json();
-    } catch {
-      data = { text: await res.text() };
+      // Add Basic Auth if credentials are embedded in the URL
+      let target = url;
+      let extraHeaders: Record<string, string> = {};
+      try {
+        const u = new URL(url);
+        if (u.username || u.password) {
+          const creds = `${decodeURIComponent(u.username)}:${decodeURIComponent(u.password)}`;
+          const encoded = Buffer.from(creds).toString("base64");
+          extraHeaders["Authorization"] = `Basic ${encoded}`;
+          // strip credentials from target URL
+          u.username = "";
+          u.password = "";
+          target = u.toString();
+        }
+      } catch {}
+
+      res = await fetch(target, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...extraHeaders },
+        body: JSON.stringify({ text, lastMessages, tone, name, profileNotes }),
+        cache: "no-store",
+      });
+    } catch (fetchErr: any) {
+      const message = typeof fetchErr?.message === "string" ? fetchErr.message : "network error";
+      return NextResponse.json(
+        { ok: false, error: `Fetch to webhook failed: ${message}`, target: url },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Read body once, then try to parse JSON; otherwise return raw text
+    let data: any = null;
+    let raw: string = "";
+    try {
+      raw = await res.text();
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = { text: raw };
+      }
+    } catch (readErr: any) {
+      data = { text: "" };
     }
 
     if (!res.ok) {

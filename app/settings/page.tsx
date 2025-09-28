@@ -8,15 +8,69 @@ import { useAppStore } from "@/lib/store";
 import type { Tone, Density } from "@/lib/types";
 
 export default function SettingsPage() {
-  const { tone, setTone, name, setName, profileNotes, setProfileNotes, clearMessages, fallbackWebhook, setFallbackWebhook, notificationsWebhook, setNotificationsWebhook, theme, setTheme, loadSettings, saveSettings, hideSleepingHours, sleepStartHour, sleepEndHour, setHideSleepingHours, setSleepStartHour, setSleepEndHour, density, setDensity, autoRefreshEnabled, autoRefreshIntervalSec, setAutoRefreshEnabled, setAutoRefreshIntervalSec } = useAppStore();
+  const tone = useAppStore((s) => s.tone);
+  const setTone = useAppStore((s) => s.setTone);
+  const name = useAppStore((s) => s.name);
+  const setName = useAppStore((s) => s.setName);
+  const profileNotes = useAppStore((s) => s.profileNotes);
+  const setProfileNotes = useAppStore((s) => s.setProfileNotes);
+  const clearMessages = useAppStore((s) => s.clearMessages);
+  const fallbackWebhook = useAppStore((s) => s.fallbackWebhook);
+  const setFallbackWebhook = useAppStore((s) => s.setFallbackWebhook);
+  const notificationsWebhook = useAppStore((s) => s.notificationsWebhook);
+  const setNotificationsWebhook = useAppStore((s) => s.setNotificationsWebhook);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+  const loadSettings = useAppStore((s) => s.loadSettings);
+  const saveSettings = useAppStore((s) => s.saveSettings);
+  const hideSleepingHours = useAppStore((s) => s.hideSleepingHours);
+  const setHideSleepingHours = useAppStore((s) => s.setHideSleepingHours);
+  const sleepStartHour = useAppStore((s) => s.sleepStartHour);
+  const setSleepStartHour = useAppStore((s) => s.setSleepStartHour);
+  const sleepEndHour = useAppStore((s) => s.sleepEndHour);
+  const setSleepEndHour = useAppStore((s) => s.setSleepEndHour);
+  const density = useAppStore((s) => s.density);
+  const setDensity = useAppStore((s) => s.setDensity);
+  const autoRefreshEnabled = useAppStore((s) => s.autoRefreshEnabled);
+  const autoRefreshIntervalSec = useAppStore((s) => s.autoRefreshIntervalSec);
+  const setAutoRefreshEnabled = useAppStore((s) => s.setAutoRefreshEnabled);
+  const setAutoRefreshIntervalSec = useAppStore((s) => s.setAutoRefreshIntervalSec);
   const [testWebhook, setTestWebhook] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<null | "ok" | "err">(null);
+  // Admin: rituals listing
+  const [rituals, setRituals] = useState<Array<{ id: string; name: string; webhook: string }>>([]);
+  const [ritualsLoading, setRitualsLoading] = useState(false);
+  const [ritualsError, setRitualsError] = useState<string | null>(null);
 
   useEffect(() => {
     // Load from Neon on first render
     loadSettings();
   }, [loadSettings]);
+
+  // Fetch rituals for admin table
+  useEffect(() => {
+    let active = true;
+    async function run() {
+      setRitualsLoading(true);
+      setRitualsError(null);
+      try {
+        const res = await fetch("/api/rituals", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        const list = Array.isArray(data?.rituals) ? data.rituals : [];
+        if (active) setRituals(list.map((r: any) => ({ id: String(r.id), name: String(r.name), webhook: String(r.webhook || "") })));
+      } catch (e: any) {
+        if (active) setRitualsError(e?.message || "Failed to load rituals");
+      } finally {
+        if (active) setRitualsLoading(false);
+      }
+    }
+    run();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function testWebhookCall() {
     if (!testWebhook.trim()) return;
@@ -229,6 +283,40 @@ export default function SettingsPage() {
         <p className="text-xs text-gray-600">
           Environment variables required later: NEXT_PUBLIC_FALLBACK_WEBHOOK, GPT key, Pushcut token. Do not commit secrets.
         </p>
+      </section>
+
+      {/* Admin: Ritual Addresses */}
+      <section className="space-y-2">
+        <h2 className="font-medium">Admin: Ritual Addresses</h2>
+        <div className="text-sm text-gray-700 dark:text-gray-300">
+          <div className="mb-2">
+            <div><span className="font-medium">Effective fallback webhook (Settings):</span> {fallbackWebhook || <em>not set</em>}</div>
+            <div><span className="font-medium">Default from env (NEXT_PUBLIC_FALLBACK_WEBHOOK):</span> {process.env.NEXT_PUBLIC_FALLBACK_WEBHOOK || <em>not set</em>}</div>
+          </div>
+          <div className="border rounded overflow-hidden border-gray-300 dark:border-gray-700">
+            <div className="grid grid-cols-3 gap-0 bg-gray-50 dark:bg-gray-800 px-3 py-2 font-medium">
+              <div>ID</div>
+              <div>Name</div>
+              <div>Webhook</div>
+            </div>
+            {ritualsLoading && (
+              <div className="px-3 py-2 text-xs">Loading rituals…</div>
+            )}
+            {ritualsError && (
+              <div className="px-3 py-2 text-xs text-red-600">{ritualsError}</div>
+            )}
+            {!ritualsLoading && !ritualsError && rituals.length === 0 && (
+              <div className="px-3 py-2 text-xs">No rituals found.</div>
+            )}
+            {!ritualsLoading && !ritualsError && rituals.map((r) => (
+              <div key={r.id} className="grid grid-cols-3 gap-0 border-t border-gray-200 dark:border-gray-700 px-3 py-2 text-xs">
+                <div className="truncate" title={r.id}>{r.id}</div>
+                <div className="truncate" title={r.name}>{r.name}</div>
+                <div className="truncate" title={r.webhook}>{r.webhook || "(none)"}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
     </div>
   );
